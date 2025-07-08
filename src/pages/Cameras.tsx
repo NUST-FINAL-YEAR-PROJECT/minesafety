@@ -14,13 +14,29 @@ const CamerasPage = () => {
 
   const startCamera = async () => {
     try {
+      console.log("Requesting camera access...");
+      
+      // Check if getUserMedia is supported
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error("Camera API not supported");
+      }
+
       const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 1280, height: 720 },
+        video: { 
+          width: { ideal: 1280 }, 
+          height: { ideal: 720 },
+          facingMode: "user"
+        },
         audio: false
       });
       
+      console.log("Camera stream obtained:", mediaStream);
+      
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
+        // Ensure video plays
+        await videoRef.current.play();
+        console.log("Video element playing");
       }
       
       setStream(mediaStream);
@@ -32,9 +48,21 @@ const CamerasPage = () => {
       });
     } catch (error) {
       console.error("Error accessing camera:", error);
+      let errorMessage = "Unable to access PC camera.";
+      
+      if (error instanceof Error) {
+        if (error.name === "NotAllowedError") {
+          errorMessage = "Camera permission denied. Please allow camera access.";
+        } else if (error.name === "NotFoundError") {
+          errorMessage = "No camera found on this device.";
+        } else if (error.name === "NotSupportedError") {
+          errorMessage = "Camera not supported in this browser.";
+        }
+      }
+      
       toast({
         title: "Camera Error",
-        description: "Unable to access PC camera. Please check permissions.",
+        description: errorMessage,
         variant: "destructive",
       });
     }
