@@ -9,6 +9,7 @@ import GasMonitoringPage from "./pages/GasMonitoring";
 import WorkerTrackingPage from "./pages/WorkerTracking";
 import EquipmentPage from "./pages/Equipment";
 import EmergencyPage from "./pages/Emergency";
+import CamerasPage from "./pages/Cameras";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +27,7 @@ const App = () => (
             <Route path="/workers" element={<WorkerTrackingPage />} />
             <Route path="/equipment" element={<EquipmentPage />} />
             <Route path="/emergency" element={<EmergencyPage />} />
+            <Route path="/cameras" element={<CamerasPage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
