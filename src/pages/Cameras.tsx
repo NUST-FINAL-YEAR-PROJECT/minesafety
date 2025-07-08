@@ -3,13 +3,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Camera, CameraOff, Monitor, Radio, RotateCcw, Settings, Maximize } from "lucide-react";
+import { Camera, CameraOff, Monitor, Radio, RotateCcw, Settings, Maximize, Download, Video, Mic, MicOff, ZoomIn, ZoomOut, RotateCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const CamerasPage = () => {
   const [isStreaming, setIsStreaming] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isAudioEnabled, setIsAudioEnabled] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [zoom, setZoom] = useState(1);
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+  const [recordedChunks, setRecordedChunks] = useState<Blob[]>([]);
+  
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const { toast } = useToast();
 
   const startCamera = async () => {
@@ -23,20 +31,35 @@ const CamerasPage = () => {
 
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: { 
-          width: { ideal: 1280 }, 
-          height: { ideal: 720 },
+          width: { ideal: 1920 }, 
+          height: { ideal: 1080 },
           facingMode: "user"
         },
-        audio: false
+        audio: true // Enable audio for full functionality
       });
       
       console.log("Camera stream obtained:", mediaStream);
       
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
-        // Ensure video plays
-        await videoRef.current.play();
-        console.log("Video element playing");
+        videoRef.current.muted = false; // Allow audio
+        
+        // Handle video loading and playing
+        videoRef.current.onloadedmetadata = () => {
+          console.log("Video metadata loaded");
+          videoRef.current?.play().catch(console.error);
+        };
+        
+        // Force play
+        try {
+          await videoRef.current.play();
+          console.log("Video element playing");
+        } catch (playError) {
+          console.warn("Autoplay failed, user interaction required:", playError);
+          // Mute and try again
+          videoRef.current.muted = true;
+          await videoRef.current.play();
+        }
       }
       
       setStream(mediaStream);
@@ -44,7 +67,7 @@ const CamerasPage = () => {
       
       toast({
         title: "Camera Connected",
-        description: "PC camera is now streaming",
+        description: "PC camera is now streaming in HD",
       });
     } catch (error) {
       console.error("Error accessing camera:", error);
@@ -52,11 +75,33 @@ const CamerasPage = () => {
       
       if (error instanceof Error) {
         if (error.name === "NotAllowedError") {
-          errorMessage = "Camera permission denied. Please allow camera access.";
+          errorMessage = "Camera permission denied. Please allow camera access and refresh the page.";
         } else if (error.name === "NotFoundError") {
           errorMessage = "No camera found on this device.";
         } else if (error.name === "NotSupportedError") {
           errorMessage = "Camera not supported in this browser.";
+        } else if (error.name === "OverconstrainedError") {
+          errorMessage = "Camera constraints not supported. Trying fallback...";
+          // Try with basic constraints
+          try {
+            const basicStream = await navigator.mediaDevices.getUserMedia({
+              video: true,
+              audio: false
+            });
+            if (videoRef.current) {
+              videoRef.current.srcObject = basicStream;
+              await videoRef.current.play();
+            }
+            setStream(basicStream);
+            setIsStreaming(true);
+            toast({
+              title: "Camera Connected",
+              description: "PC camera is now streaming (basic quality)",
+            });
+            return;
+          } catch (fallbackError) {
+            console.error("Fallback also failed:", fallbackError);
+          }
         }
       }
       
@@ -73,12 +118,140 @@ const CamerasPage = () => {
       stream.getTracks().forEach(track => track.stop());
       setStream(null);
       setIsStreaming(false);
+      setIsRecording(false);
+      setZoom(1);
+      
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+      }
       
       toast({
         title: "Camera Disconnected",
         description: "PC camera has been stopped",
       });
     }
+  };
+
+  const startRecording = () => {
+    if (!stream) return;
+    
+    try {
+      const recorder = new MediaRecorder(stream, {
+        mimeType: 'video/webm;codecs=vp9'
+      });
+      
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          setRecordedChunks(prev => [...prev, event.data]);
+        }
+      };
+      
+      recorder.onstop = () => {
+        const blob = new Blob(recordedChunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `camera-recording-${new Date().toISOString()}.webm`;
+        a.click();
+        setRecordedChunks([]);
+      };
+      
+      recorder.start();
+      setMediaRecorder(recorder);
+      setIsRecording(true);
+      
+      toast({
+        title: "Recording Started",
+        description: "Camera recording has begun",
+      });
+    } catch (error) {
+      console.error("Recording error:", error);
+      toast({
+        title: "Recording Error",
+        description: "Unable to start recording",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.stop();
+      setIsRecording(false);
+      
+      toast({
+        title: "Recording Saved",
+        description: "Recording has been downloaded",
+      });
+    }
+  };
+
+  const takeSnapshot = () => {
+    if (!videoRef.current || !canvasRef.current) return;
+    
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    
+    if (!ctx) return;
+    
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0);
+    
+    canvas.toBlob((blob) => {
+      if (blob) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `camera-snapshot-${new Date().toISOString()}.png`;
+        a.click();
+      }
+    }, 'image/png');
+    
+    toast({
+      title: "Snapshot Saved",
+      description: "Photo has been downloaded",
+    });
+  };
+
+  const toggleAudio = () => {
+    if (!stream) return;
+    
+    const audioTracks = stream.getAudioTracks();
+    audioTracks.forEach(track => {
+      track.enabled = !track.enabled;
+    });
+    
+    setIsAudioEnabled(prev => !prev);
+    
+    toast({
+      title: isAudioEnabled ? "Audio Disabled" : "Audio Enabled",
+      description: `Camera audio has been ${isAudioEnabled ? 'muted' : 'enabled'}`,
+    });
+  };
+
+  const toggleFullscreen = () => {
+    if (!videoRef.current) return;
+    
+    if (!isFullscreen) {
+      if (videoRef.current.requestFullscreen) {
+        videoRef.current.requestFullscreen();
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
+    
+    setIsFullscreen(prev => !prev);
+  };
+
+  const adjustZoom = (direction: 'in' | 'out') => {
+    setZoom(prev => {
+      const newZoom = direction === 'in' ? Math.min(prev + 0.1, 3) : Math.max(prev - 0.1, 1);
+      return newZoom;
+    });
   };
 
   useEffect(() => {
@@ -145,7 +318,8 @@ const CamerasPage = () => {
                 autoPlay
                 playsInline
                 muted
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover transition-transform duration-300"
+                style={{ transform: `scale(${zoom})` }}
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-muted-foreground/20">
@@ -161,22 +335,92 @@ const CamerasPage = () => {
               </div>
             )}
             
+            {/* Hidden canvas for snapshots */}
+            <canvas ref={canvasRef} className="hidden" />
+            
             {isStreaming && (
               <>
                 <div className="absolute top-4 left-4">
                   <div className="flex items-center gap-2 bg-black/50 backdrop-blur-sm rounded px-3 py-1">
                     <div className="w-2 h-2 bg-success rounded-full animate-pulse"></div>
-                    <span className="text-white text-sm font-medium">LIVE</span>
+                    <span className="text-white text-sm font-medium">
+                      {isRecording ? "RECORDING" : "LIVE"}
+                    </span>
+                    {zoom > 1 && (
+                      <span className="text-white text-xs ml-2">
+                        {Math.round(zoom * 100)}%
+                      </span>
+                    )}
                   </div>
                 </div>
                 
                 <div className="absolute top-4 right-4 flex gap-2">
-                  <Button size="sm" variant="secondary" className="bg-black/50 hover:bg-black/70">
-                    <Settings className="w-4 h-4" />
+                  <Button 
+                    size="sm" 
+                    variant="secondary" 
+                    className="bg-black/50 hover:bg-black/70"
+                    onClick={toggleAudio}
+                    title={isAudioEnabled ? "Mute Audio" : "Enable Audio"}
+                  >
+                    {isAudioEnabled ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
                   </Button>
-                  <Button size="sm" variant="secondary" className="bg-black/50 hover:bg-black/70">
+                  <Button 
+                    size="sm" 
+                    variant="secondary" 
+                    className="bg-black/50 hover:bg-black/70"
+                    onClick={takeSnapshot}
+                    title="Take Snapshot"
+                  >
+                    <Download className="w-4 h-4" />
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="secondary" 
+                    className="bg-black/50 hover:bg-black/70"
+                    onClick={toggleFullscreen}
+                    title="Toggle Fullscreen"
+                  >
                     <Maximize className="w-4 h-4" />
                   </Button>
+                </div>
+
+                {/* Bottom controls */}
+                <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2">
+                  <div className="flex items-center gap-2 bg-black/50 backdrop-blur-sm rounded px-4 py-2">
+                    <Button
+                      size="sm"
+                      variant={isRecording ? "destructive" : "secondary"}
+                      className="bg-black/50 hover:bg-black/70"
+                      onClick={isRecording ? stopRecording : startRecording}
+                      title={isRecording ? "Stop Recording" : "Start Recording"}
+                    >
+                      <Video className="w-4 h-4" />
+                    </Button>
+                    
+                    <div className="w-px h-4 bg-white/30 mx-2" />
+                    
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="bg-black/50 hover:bg-black/70"
+                      onClick={() => adjustZoom('out')}
+                      disabled={zoom <= 1}
+                      title="Zoom Out"
+                    >
+                      <ZoomOut className="w-4 h-4" />
+                    </Button>
+                    
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="bg-black/50 hover:bg-black/70"
+                      onClick={() => adjustZoom('in')}
+                      disabled={zoom >= 3}
+                      title="Zoom In"
+                    >
+                      <ZoomIn className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
               </>
             )}
