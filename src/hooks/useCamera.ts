@@ -9,6 +9,9 @@ export const useCamera = () => {
   const [zoom, setZoom] = useState(1);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [selectedCamera, setSelectedCamera] = useState<string>("");
+  const [viewMode, setViewMode] = useState<'single' | 'grid' | 'alternating'>('single');
+  const [currentViewIndex, setCurrentViewIndex] = useState(0);
+  const [multipleStreams, setMultipleStreams] = useState<MediaStream[]>([]);
   const [cameraConfig, setCameraConfig] = useState<CameraConfig>({
     resolution: "1920x1080",
     frameRate: 30,
@@ -52,10 +55,11 @@ export const useCamera = () => {
         throw new Error("Camera API not supported in this browser");
       }
 
-      // Stop any existing stream
+      // Stop any existing streams
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
       }
+      multipleStreams.forEach(s => s.getTracks().forEach(track => track.stop()));
 
       const constraints = {
         video: getVideoConstraints(),
@@ -64,24 +68,22 @@ export const useCamera = () => {
 
       console.log("Camera constraints:", constraints);
 
-      const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-      
-      console.log("Camera stream obtained:", {
-        tracks: mediaStream.getTracks().map(track => ({
-          kind: track.kind,
-          label: track.label,
-          enabled: track.enabled,
-          readyState: track.readyState,
-          settings: track.getSettings()
-        }))
+      // Create multiple camera instances using the same PC camera
+      const streamPromises = Array.from({ length: 4 }, async () => {
+        return await navigator.mediaDevices.getUserMedia(constraints);
       });
 
-      setStream(mediaStream);
+      const streams = await Promise.all(streamPromises);
+      
+      console.log("Multiple camera streams obtained:", streams.length);
+
+      setStream(streams[0]); // Primary stream
+      setMultipleStreams(streams);
       setIsStreaming(true);
       
       toast({
-        title: "Camera Connected",
-        description: `Camera streaming in ${cameraConfig.resolution} at ${cameraConfig.frameRate}fps`,
+        title: "Cameras Connected",
+        description: `${streams.length} camera feeds active in ${cameraConfig.resolution}`,
       });
 
     } catch (error) {
@@ -137,7 +139,7 @@ export const useCamera = () => {
   }, [stream, cameraConfig, selectedCamera, getVideoConstraints, toast]);
 
   const stopCamera = useCallback(() => {
-    console.log("Stopping camera");
+    console.log("Stopping cameras");
     
     if (stream) {
       stream.getTracks().forEach(track => {
@@ -146,6 +148,12 @@ export const useCamera = () => {
       });
       setStream(null);
     }
+
+    // Stop all multiple streams
+    multipleStreams.forEach(s => {
+      s.getTracks().forEach(track => track.stop());
+    });
+    setMultipleStreams([]);
 
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
@@ -156,10 +164,36 @@ export const useCamera = () => {
     setZoom(1);
     
     toast({
-      title: "Camera Disconnected",
-      description: "Camera has been stopped",
+      title: "Cameras Disconnected",
+      description: "All camera feeds have been stopped",
     });
-  }, [stream, toast]);
+  }, [stream, multipleStreams, toast]);
+
+  const switchView = useCallback((mode: 'single' | 'grid' | 'alternating') => {
+    setViewMode(mode);
+    if (mode === 'alternating') {
+      setCurrentViewIndex(0);
+    }
+    
+    toast({
+      title: "View Mode Changed",
+      description: `Switched to ${mode} view`,
+    });
+  }, [toast]);
+
+  const switchCamera = useCallback((direction: 'next' | 'prev') => {
+    if (multipleStreams.length === 0) return;
+    
+    setCurrentViewIndex(prev => {
+      const newIndex = direction === 'next' 
+        ? (prev + 1) % multipleStreams.length
+        : (prev - 1 + multipleStreams.length) % multipleStreams.length;
+      
+      // Update primary stream for single view
+      setStream(multipleStreams[newIndex]);
+      return newIndex;
+    });
+  }, [multipleStreams]);
 
   const startRecording = useCallback(() => {
     if (!stream) {
@@ -305,6 +339,9 @@ export const useCamera = () => {
     stream,
     selectedCamera,
     cameraConfig,
+    viewMode,
+    currentViewIndex,
+    multipleStreams,
     
     // Refs
     videoRef,
@@ -319,6 +356,8 @@ export const useCamera = () => {
     toggleAudio,
     adjustZoom,
     toggleFullscreen,
+    switchView,
+    switchCamera,
     setSelectedCamera,
     setCameraConfig,
   };

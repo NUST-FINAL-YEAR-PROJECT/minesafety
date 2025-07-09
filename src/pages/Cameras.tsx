@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -7,6 +7,7 @@ import { useCamera } from "@/hooks/useCamera";
 import { CameraControls } from "@/components/Cameras/CameraControls";
 import { CameraDetection } from "@/components/Cameras/CameraDetection";
 import { LiveCameraFeed } from "@/components/Cameras/LiveCameraFeed";
+import { MultiCameraGrid } from "@/components/Cameras/MultiCameraGrid";
 import { CameraSettings } from "@/components/Cameras/CameraSettings";
 
 const CamerasPage = () => {
@@ -20,6 +21,9 @@ const CamerasPage = () => {
     stream,
     selectedCamera,
     cameraConfig,
+    viewMode,
+    currentViewIndex,
+    multipleStreams,
     videoRef,
     canvasRef,
     startCamera,
@@ -30,9 +34,22 @@ const CamerasPage = () => {
     toggleAudio,
     adjustZoom,
     toggleFullscreen,
+    switchView,
+    switchCamera,
     setSelectedCamera,
     setCameraConfig,
   } = useCamera();
+
+  // Auto-switch cameras in alternating mode
+  useEffect(() => {
+    if (viewMode === 'alternating' && multipleStreams.length > 1) {
+      const interval = setInterval(() => {
+        switchCamera('next');
+      }, 3000); // Switch every 3 seconds
+
+      return () => clearInterval(interval);
+    }
+  }, [viewMode, multipleStreams.length, switchCamera]);
 
   // Mock data for additional cameras
   const mockCameras = [
@@ -64,6 +81,9 @@ const CamerasPage = () => {
                 isRecording={isRecording}
                 isAudioEnabled={isAudioEnabled}
                 zoom={zoom}
+                viewMode={viewMode}
+                currentViewIndex={currentViewIndex}
+                totalCameras={multipleStreams.length}
                 onStartCamera={startCamera}
                 onStopCamera={stopCamera}
                 onStartRecording={startRecording}
@@ -74,16 +94,27 @@ const CamerasPage = () => {
                 onZoomIn={() => adjustZoom('in')}
                 onZoomOut={() => adjustZoom('out')}
                 onOpenSettings={() => setShowSettings(true)}
+                onSwitchView={switchView}
+                onSwitchCamera={switchCamera}
               />
             </CardHeader>
             <CardContent>
-              <LiveCameraFeed
-                ref={videoRef}
-                stream={stream}
-                isStreaming={isStreaming}
-                isRecording={isRecording}
-                zoom={zoom}
-              />
+              {viewMode === 'grid' ? (
+                <MultiCameraGrid
+                  streams={multipleStreams}
+                  isStreaming={isStreaming}
+                  isRecording={isRecording}
+                  zoom={zoom}
+                />
+              ) : (
+                <LiveCameraFeed
+                  ref={videoRef}
+                  stream={stream}
+                  isStreaming={isStreaming}
+                  isRecording={isRecording}
+                  zoom={zoom}
+                />
+              )}
               <canvas ref={canvasRef} className="hidden" />
             </CardContent>
           </Card>
