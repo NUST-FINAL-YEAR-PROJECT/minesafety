@@ -1,15 +1,18 @@
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/AppSidebar"
 import { Button } from "@/components/ui/button"
-import { Bell, User, Settings as SettingsIcon } from "lucide-react"
+import { Bell, User, Settings as SettingsIcon, LogOut } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import { useAuth } from "@/contexts/AuthContext"
 
 interface LayoutProps {
   children: React.ReactNode
 }
 
 export function Layout({ children }: LayoutProps) {
+  const { user, logout } = useAuth();
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
@@ -35,8 +38,13 @@ export function Layout({ children }: LayoutProps) {
                 <Button variant="ghost" size="icon">
                   <SettingsIcon className="h-4 w-4" />
                 </Button>
-                <Button variant="ghost" size="icon">
+                <div className="flex items-center gap-2 px-2">
                   <User className="h-4 w-4" />
+                  <span className="text-sm font-medium">{user?.name}</span>
+                  <Badge variant="outline" className="text-xs">{user?.role}</Badge>
+                </div>
+                <Button variant="ghost" size="icon" onClick={logout}>
+                  <LogOut className="h-4 w-4" />
                 </Button>
               </div>
             </div>
