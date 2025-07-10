@@ -12,6 +12,7 @@ import { CameraSettings } from "@/components/Cameras/CameraSettings";
 
 const CamerasPage = () => {
   const [showSettings, setShowSettings] = useState(false);
+  const [enableObjectDetection, setEnableObjectDetection] = useState(false);
   
   const {
     isStreaming,
@@ -84,6 +85,7 @@ const CamerasPage = () => {
                 viewMode={viewMode}
                 currentViewIndex={currentViewIndex}
                 totalCameras={multipleStreams.length}
+                enableObjectDetection={enableObjectDetection}
                 onStartCamera={startCamera}
                 onStopCamera={stopCamera}
                 onStartRecording={startRecording}
@@ -96,6 +98,7 @@ const CamerasPage = () => {
                 onOpenSettings={() => setShowSettings(true)}
                 onSwitchView={switchView}
                 onSwitchCamera={switchCamera}
+                onToggleObjectDetection={() => setEnableObjectDetection(!enableObjectDetection)}
               />
             </CardHeader>
             <CardContent>
@@ -113,6 +116,7 @@ const CamerasPage = () => {
                   isStreaming={isStreaming}
                   isRecording={isRecording}
                   zoom={zoom}
+                  enableObjectDetection={enableObjectDetection}
                 />
               )}
               <canvas ref={canvasRef} className="hidden" />

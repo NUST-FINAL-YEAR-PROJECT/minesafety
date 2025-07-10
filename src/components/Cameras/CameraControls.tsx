@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Camera, CameraOff, Video, Mic, MicOff, Download, Maximize, ZoomIn, ZoomOut, Settings, RotateCw, Grid3X3, Square, SkipForward, SkipBack } from "lucide-react";
+import { Camera, CameraOff, Video, Mic, MicOff, Download, Maximize, ZoomIn, ZoomOut, Settings, RotateCw, Grid3X3, Square, SkipForward, SkipBack, Brain } from "lucide-react";
 
 interface CameraControlsProps {
   isStreaming: boolean;
@@ -10,6 +10,7 @@ interface CameraControlsProps {
   viewMode: 'single' | 'grid' | 'alternating';
   currentViewIndex: number;
   totalCameras: number;
+  enableObjectDetection?: boolean;
   onStartCamera: () => void;
   onStopCamera: () => void;
   onStartRecording: () => void;
@@ -22,6 +23,7 @@ interface CameraControlsProps {
   onOpenSettings: () => void;
   onSwitchView: (mode: 'single' | 'grid' | 'alternating') => void;
   onSwitchCamera: (direction: 'next' | 'prev') => void;
+  onToggleObjectDetection?: () => void;
 }
 
 export const CameraControls = ({
@@ -32,6 +34,7 @@ export const CameraControls = ({
   viewMode,
   currentViewIndex,
   totalCameras,
+  enableObjectDetection = false,
   onStartCamera,
   onStopCamera,
   onStartRecording,
@@ -44,6 +47,7 @@ export const CameraControls = ({
   onOpenSettings,
   onSwitchView,
   onSwitchCamera,
+  onToggleObjectDetection,
 }: CameraControlsProps) => {
   return (
     <div className="flex items-center justify-between mb-4">
@@ -118,6 +122,16 @@ export const CameraControls = ({
         )}
 
         <div className="w-px h-4 bg-border mx-1" />
+
+        <Button
+          onClick={onToggleObjectDetection}
+          variant={enableObjectDetection ? "default" : "outline"}
+          size="sm"
+          disabled={!isStreaming}
+          title="AI Object Detection"
+        >
+          <Brain className="w-4 h-4" />
+        </Button>
 
         <Button
           onClick={onOpenSettings}

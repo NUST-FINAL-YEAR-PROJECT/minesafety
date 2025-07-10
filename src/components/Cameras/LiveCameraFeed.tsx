@@ -1,6 +1,8 @@
 import { useRef, useEffect, forwardRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Camera } from "lucide-react";
+import { useObjectDetection } from "@/hooks/useObjectDetection";
+import ObjectDetectionOverlay from "./ObjectDetectionOverlay";
 
 interface LiveCameraFeedProps {
   stream: MediaStream | null;
@@ -8,11 +10,22 @@ interface LiveCameraFeedProps {
   isRecording: boolean;
   zoom: number;
   onVideoReady?: () => void;
+  enableObjectDetection?: boolean;
 }
 
 export const LiveCameraFeed = forwardRef<HTMLVideoElement, LiveCameraFeedProps>(
-  ({ stream, isStreaming, isRecording, zoom, onVideoReady }, ref) => {
+  ({ stream, isStreaming, isRecording, zoom, onVideoReady, enableObjectDetection = false }, ref) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
+    const {
+      detections,
+      isModelLoaded,
+      isDetecting,
+      config: detectionConfig,
+      setConfig: setDetectionConfig,
+      startDetection,
+      stopDetection,
+      toggleDetection,
+    } = useObjectDetection();
 
     useEffect(() => {
       const videoElement = ref as React.MutableRefObject<HTMLVideoElement>;
@@ -36,6 +49,11 @@ export const LiveCameraFeed = forwardRef<HTMLVideoElement, LiveCameraFeedProps>(
             duration: video.duration
           });
           onVideoReady?.();
+          
+          // Start object detection if enabled
+          if (enableObjectDetection && detectionConfig.enabled) {
+            startDetection(video);
+          }
         };
 
         const handleCanPlay = async () => {
@@ -63,9 +81,20 @@ export const LiveCameraFeed = forwardRef<HTMLVideoElement, LiveCameraFeedProps>(
           video.removeEventListener('loadedmetadata', handleLoadedMetadata);
           video.removeEventListener('canplay', handleCanPlay);
           video.removeEventListener('error', handleError);
+          stopDetection();
         };
       }
-    }, [stream, ref, onVideoReady]);
+    }, [stream, ref, onVideoReady, enableObjectDetection, detectionConfig.enabled, startDetection, stopDetection]);
+
+    // Update object detection when configuration changes
+    useEffect(() => {
+      if (enableObjectDetection) {
+        setDetectionConfig(prev => ({ ...prev, enabled: true }));
+      } else {
+        setDetectionConfig(prev => ({ ...prev, enabled: false }));
+        stopDetection();
+      }
+    }, [enableObjectDetection, setDetectionConfig, stopDetection]);
 
     return (
       <Card className="overflow-hidden">
@@ -82,7 +111,7 @@ export const LiveCameraFeed = forwardRef<HTMLVideoElement, LiveCameraFeedProps>(
                   style={{ transform: `scale(${zoom})` }}
                 />
                 
-                {/* Live indicator */}
+                 {/* Live indicator */}
                 <div className="absolute top-4 left-4">
                   <div className="flex items-center gap-2 bg-black/70 backdrop-blur-sm rounded px-3 py-1">
                     <div className="w-2 h-2 bg-destructive rounded-full animate-pulse"></div>
@@ -94,8 +123,21 @@ export const LiveCameraFeed = forwardRef<HTMLVideoElement, LiveCameraFeedProps>(
                         {Math.round(zoom * 100)}%
                       </span>
                     )}
+                    {enableObjectDetection && (
+                      <span className="text-white text-xs ml-2">
+                        {isModelLoaded ? (isDetecting ? "🔍 DETECTING" : "🤖 AI ON") : "⏳ LOADING AI"}
+                      </span>
+                    )}
                   </div>
                 </div>
+
+                {/* Object Detection Overlay */}
+                <ObjectDetectionOverlay
+                  detections={detections}
+                  videoWidth={ref && (ref as React.MutableRefObject<HTMLVideoElement>).current?.videoWidth || 0}
+                  videoHeight={ref && (ref as React.MutableRefObject<HTMLVideoElement>).current?.videoHeight || 0}
+                  isEnabled={enableObjectDetection && detectionConfig.enabled}
+                />
 
                 {/* Hidden canvas for snapshots */}
                 <canvas ref={canvasRef} className="hidden" />
