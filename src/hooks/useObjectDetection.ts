@@ -18,7 +18,7 @@ export interface Detection {
 
 export interface ObjectDetectionConfig {
   enabled: boolean;
-  threshold: 0.3;
+  threshold: number;
   model: 'facebook/detr-resnet-50' | 'hustvl/yolos-tiny';
   interval: number; // Detection interval in ms
 }
@@ -42,37 +42,56 @@ export const useObjectDetection = () => {
     if (detectorRef.current) return;
 
     try {
-      console.log('Loading object detection model...');
-      const detector = await pipeline('object-detection', config.model, {
-        device: 'webgpu',
-      });
+      console.log('Loading object detection model:', config.model);
+      setIsModelLoaded(false);
+      
+      // Try WebGPU first, then fallback to CPU
+      let detector;
+      try {
+        console.log('Attempting to load model with WebGPU...');
+        detector = await pipeline('object-detection', config.model, {
+          device: 'webgpu',
+        });
+        console.log('Model loaded successfully with WebGPU');
+      } catch (webgpuError) {
+        console.warn('WebGPU failed, falling back to CPU:', webgpuError);
+        detector = await pipeline('object-detection', config.model);
+        console.log('Model loaded successfully with CPU');
+      }
+      
       detectorRef.current = detector;
       setIsModelLoaded(true);
-      console.log('Object detection model loaded successfully');
+      console.log('Object detection model ready');
     } catch (error) {
       console.error('Failed to load object detection model:', error);
-      // Fallback to CPU if WebGPU fails
-      try {
-        const detector = await pipeline('object-detection', config.model);
-        detectorRef.current = detector;
-        setIsModelLoaded(true);
-        console.log('Object detection model loaded on CPU');
-      } catch (cpuError) {
-        console.error('Failed to load model on CPU:', cpuError);
-      }
+      setIsModelLoaded(false);
     }
   }, [config.model]);
 
   const detectObjects = useCallback(async (videoElement: HTMLVideoElement) => {
     if (!detectorRef.current || !videoElement || isDetecting) return;
+    
+    // Check if video is ready
+    if (videoElement.videoWidth === 0 || videoElement.videoHeight === 0) {
+      console.warn('Video not ready for detection');
+      return;
+    }
 
     try {
       setIsDetecting(true);
+      console.log('Starting object detection...');
 
       // Create canvas to capture video frame
       const canvas = canvasRef.current || document.createElement('canvas');
+      if (!canvasRef.current) {
+        canvasRef.current = canvas;
+      }
+      
       const ctx = canvas.getContext('2d');
-      if (!ctx) return;
+      if (!ctx) {
+        console.error('Could not get canvas context');
+        return;
+      }
 
       // Set canvas size to video size
       canvas.width = videoElement.videoWidth;
@@ -81,11 +100,13 @@ export const useObjectDetection = () => {
       // Draw video frame to canvas
       ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
       
-      // Convert to base64 for model input
-      const imageData = canvas.toDataURL('image/jpeg', 0.8);
+      // Convert canvas to image data for the model
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       
+      console.log('Running detection on frame...');
       // Run object detection
-      const results = await detectorRef.current(imageData);
+      const results = await detectorRef.current(canvas);
+      console.log('Detection results:', results);
       
       // Filter results by confidence threshold
       const filteredDetections = results
@@ -96,10 +117,12 @@ export const useObjectDetection = () => {
           box: detection.box,
         }));
 
+      console.log('Filtered detections:', filteredDetections);
       setDetections(filteredDetections);
       
     } catch (error) {
       console.error('Object detection failed:', error);
+      setDetections([]);
     } finally {
       setIsDetecting(false);
     }

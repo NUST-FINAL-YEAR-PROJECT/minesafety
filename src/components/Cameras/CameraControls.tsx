@@ -124,13 +124,17 @@ export const CameraControls = ({
         <div className="w-px h-4 bg-border mx-1" />
 
         <Button
-          onClick={onToggleObjectDetection}
+          onClick={() => {
+            console.log('Toggling object detection:', !enableObjectDetection);
+            onToggleObjectDetection?.();
+          }}
           variant={enableObjectDetection ? "default" : "outline"}
           size="sm"
           disabled={!isStreaming}
           title="AI Object Detection"
         >
           <Brain className="w-4 h-4" />
+          {enableObjectDetection && <span className="ml-1 text-xs">ON</span>}
         </Button>
 
         <Button
