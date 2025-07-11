@@ -112,8 +112,8 @@ export const LiveCameraFeed = forwardRef<HTMLVideoElement, LiveCameraFeedProps>(
                 />
                 
                  {/* Live indicator */}
-                <div className="absolute top-4 left-4">
-                  <div className="flex items-center gap-2 bg-black/70 backdrop-blur-sm rounded px-3 py-1">
+                <div className="absolute top-4 left-4 z-20">
+                  <div className="flex items-center gap-2 bg-black/80 backdrop-blur-sm rounded px-3 py-1">
                     <div className="w-2 h-2 bg-destructive rounded-full animate-pulse"></div>
                     <span className="text-white text-sm font-medium">
                       {isRecording ? "RECORDING" : "LIVE"}

@@ -50,7 +50,7 @@ const ObjectDetectionOverlay: React.FC<ObjectDetectionOverlayProps> = ({
   };
 
   return (
-    <div className="absolute inset-0 pointer-events-none">
+    <div className="absolute inset-0 pointer-events-none z-10">
       {detections.map((detection, index) => {
         const { box, label, score } = detection;
         const color = getDetectionColor(label);
@@ -116,7 +116,7 @@ const ObjectDetectionOverlay: React.FC<ObjectDetectionOverlayProps> = ({
 
       {/* Detection summary */}
       {detections.length > 0 && (
-        <div className="absolute top-4 right-4 bg-black/70 backdrop-blur-sm rounded px-3 py-2 text-white text-sm">
+        <div className="absolute top-4 right-4 bg-black/80 backdrop-blur-sm rounded px-3 py-2 text-white text-sm z-20">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
             <span>AI Detection: {detections.length} objects</span>
