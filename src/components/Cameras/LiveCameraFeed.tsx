@@ -18,13 +18,15 @@ export const LiveCameraFeed = forwardRef<HTMLVideoElement, LiveCameraFeedProps>(
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const {
       detections,
+      stats,
       isModelLoaded,
       isDetecting,
+      modelLoadError,
       config: detectionConfig,
       setConfig: setDetectionConfig,
       startDetection,
       stopDetection,
-      toggleDetection,
+      retryModelLoad,
     } = useObjectDetection();
 
     useEffect(() => {
@@ -124,8 +126,14 @@ export const LiveCameraFeed = forwardRef<HTMLVideoElement, LiveCameraFeedProps>(
                       </span>
                     )}
                     {enableObjectDetection && (
-                      <span className="text-white text-xs ml-2">
-                        {isModelLoaded ? (isDetecting ? "🔍 DETECTING" : "🤖 AI ON") : "⏳ LOADING AI"}
+                      <span className="text-white text-xs ml-2 flex items-center gap-1">
+                        {modelLoadError ? (
+                          <span className="text-red-400">❌ AI ERROR</span>
+                        ) : isModelLoaded ? (
+                          isDetecting ? "🔍 DETECTING" : "🤖 AI READY"
+                        ) : (
+                          "⏳ LOADING AI"
+                        )}
                       </span>
                     )}
                   </div>
@@ -134,9 +142,13 @@ export const LiveCameraFeed = forwardRef<HTMLVideoElement, LiveCameraFeedProps>(
                 {/* Object Detection Overlay */}
                 <ObjectDetectionOverlay
                   detections={detections}
+                  stats={stats}
                   videoWidth={ref && (ref as React.MutableRefObject<HTMLVideoElement>).current?.videoWidth || 0}
                   videoHeight={ref && (ref as React.MutableRefObject<HTMLVideoElement>).current?.videoHeight || 0}
                   isEnabled={enableObjectDetection && detectionConfig.enabled}
+                  isDetecting={isDetecting}
+                  modelLoadError={modelLoadError}
+                  onRetryLoad={retryModelLoad}
                 />
 
                 {/* Hidden canvas for snapshots */}

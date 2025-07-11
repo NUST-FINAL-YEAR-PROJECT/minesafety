@@ -8,11 +8,24 @@ import { CameraControls } from "@/components/Cameras/CameraControls";
 import { CameraDetection } from "@/components/Cameras/CameraDetection";
 import { LiveCameraFeed } from "@/components/Cameras/LiveCameraFeed";
 import { MultiCameraGrid } from "@/components/Cameras/MultiCameraGrid";
+import { DetectionSettings } from "@/components/Cameras/DetectionSettings";
 import { CameraSettings } from "@/components/Cameras/CameraSettings";
+import { useObjectDetection } from "@/hooks/useObjectDetection";
 
 const CamerasPage = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [enableObjectDetection, setEnableObjectDetection] = useState(false);
+
+  // Object Detection Hook
+  const {
+    config: detectionConfig,
+    stats: detectionStats,
+    isModelLoaded,
+    modelLoadError,
+    setConfig: setDetectionConfig,
+    resetStats,
+    retryModelLoad,
+  } = useObjectDetection();
   
   const {
     isStreaming,
@@ -98,7 +111,11 @@ const CamerasPage = () => {
                 onOpenSettings={() => setShowSettings(true)}
                 onSwitchView={switchView}
                 onSwitchCamera={switchCamera}
-                onToggleObjectDetection={() => setEnableObjectDetection(!enableObjectDetection)}
+                onToggleObjectDetection={() => {
+                  const newEnabled = !enableObjectDetection;
+                  setEnableObjectDetection(newEnabled);
+                  setDetectionConfig(prev => ({ ...prev, enabled: newEnabled }));
+                }}
               />
             </CardHeader>
             <CardContent>
@@ -128,6 +145,17 @@ const CamerasPage = () => {
           <CameraDetection
             onCameraSelect={setSelectedCamera}
             selectedCamera={selectedCamera}
+          />
+          
+          {/* AI Detection Settings */}
+          <DetectionSettings
+            config={detectionConfig}
+            stats={detectionStats}
+            isModelLoaded={isModelLoaded}
+            modelLoadError={modelLoadError}
+            onConfigChange={(newConfig) => setDetectionConfig(prev => ({ ...prev, ...newConfig }))}
+            onResetStats={resetStats}
+            onRetryLoad={retryModelLoad}
           />
         </div>
       </div>
