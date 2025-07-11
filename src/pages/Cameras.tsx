@@ -68,8 +68,8 @@ const CamerasPage = () => {
       </div>
 
       {/* Camera Detection and Configuration */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="lg:col-span-3">
           {/* PC Camera Section */}
           <Card className="border-2">
             <CardHeader className="pb-4">

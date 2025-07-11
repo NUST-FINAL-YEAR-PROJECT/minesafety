@@ -19,7 +19,7 @@ export interface Detection {
 export interface ObjectDetectionConfig {
   enabled: boolean;
   threshold: number;
-  model: 'Xenova/yolov8n' | 'facebook/detr-resnet-50' | 'Xenova/detr-resnet-50';
+  model: 'facebook/detr-resnet-50' | 'Xenova/detr-resnet-50';
   interval: number; // Detection interval in ms
 }
 
@@ -30,8 +30,8 @@ export const useObjectDetection = () => {
   const [config, setConfig] = useState<ObjectDetectionConfig>({
     enabled: false,
     threshold: 0.3,
-    model: 'Xenova/yolov8n', // YOLOv8 nano - fast and reliable
-    interval: 1000,
+    model: 'facebook/detr-resnet-50', // Reliable DETR model
+    interval: 2000, // Slower interval for more stable detection
   });
 
   const detectorRef = useRef<any>(null);
@@ -42,38 +42,19 @@ export const useObjectDetection = () => {
     if (detectorRef.current) return;
 
     try {
-      console.log('Loading YOLOv8 object detection model:', config.model);
+      console.log('Loading DETR object detection model:', config.model);
       setIsModelLoaded(false);
       
-      // Try different device options
-      let detector;
-      try {
-        console.log('Attempting to load with WebGPU...');
-        detector = await pipeline('object-detection', config.model, {
-          device: 'webgpu',
-          dtype: 'fp32',
-        });
-        console.log('YOLOv8 model loaded successfully with WebGPU');
-      } catch (webgpuError) {
-        console.warn('WebGPU failed, falling back to CPU:', webgpuError);
-        try {
-          detector = await pipeline('object-detection', config.model, {
-            device: 'cpu',
-            dtype: 'fp32',
-          });
-          console.log('YOLOv8 model loaded successfully with CPU');
-        } catch (cpuError) {
-          console.warn('CPU failed, trying without device specification:', cpuError);
-          detector = await pipeline('object-detection', config.model);
-          console.log('YOLOv8 model loaded with default settings');
-        }
-      }
+      // Use DETR model which is more reliable
+      console.log('Loading model...');
+      const detector = await pipeline('object-detection', config.model);
+      console.log('DETR model loaded successfully');
       
       detectorRef.current = detector;
       setIsModelLoaded(true);
       console.log('Object detection model ready for inference');
     } catch (error) {
-      console.error('Failed to load YOLOv8 model:', error);
+      console.error('Failed to load DETR model:', error);
       setIsModelLoaded(false);
     }
   }, [config.model]);

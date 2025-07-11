@@ -99,7 +99,7 @@ export const LiveCameraFeed = forwardRef<HTMLVideoElement, LiveCameraFeedProps>(
     return (
       <Card className="overflow-hidden">
         <CardContent className="p-0">
-          <div className="aspect-video bg-muted rounded-lg overflow-hidden relative">
+          <div className="aspect-[16/10] bg-muted rounded-lg overflow-hidden relative">
             {isStreaming && stream ? (
               <>
                 <video
