@@ -19,7 +19,7 @@ export interface Detection {
 export interface ObjectDetectionConfig {
   enabled: boolean;
   threshold: number;
-  model: 'facebook/detr-resnet-50' | 'hustvl/yolos-tiny';
+  model: 'Xenova/yolov8n' | 'facebook/detr-resnet-50' | 'Xenova/detr-resnet-50';
   interval: number; // Detection interval in ms
 }
 
@@ -30,7 +30,7 @@ export const useObjectDetection = () => {
   const [config, setConfig] = useState<ObjectDetectionConfig>({
     enabled: false,
     threshold: 0.3,
-    model: 'hustvl/yolos-tiny', // Faster model for real-time detection
+    model: 'Xenova/yolov8n', // YOLOv8 nano - fast and reliable
     interval: 1000,
   });
 
@@ -42,28 +42,38 @@ export const useObjectDetection = () => {
     if (detectorRef.current) return;
 
     try {
-      console.log('Loading object detection model:', config.model);
+      console.log('Loading YOLOv8 object detection model:', config.model);
       setIsModelLoaded(false);
       
-      // Try WebGPU first, then fallback to CPU
+      // Try different device options
       let detector;
       try {
-        console.log('Attempting to load model with WebGPU...');
+        console.log('Attempting to load with WebGPU...');
         detector = await pipeline('object-detection', config.model, {
           device: 'webgpu',
+          dtype: 'fp32',
         });
-        console.log('Model loaded successfully with WebGPU');
+        console.log('YOLOv8 model loaded successfully with WebGPU');
       } catch (webgpuError) {
         console.warn('WebGPU failed, falling back to CPU:', webgpuError);
-        detector = await pipeline('object-detection', config.model);
-        console.log('Model loaded successfully with CPU');
+        try {
+          detector = await pipeline('object-detection', config.model, {
+            device: 'cpu',
+            dtype: 'fp32',
+          });
+          console.log('YOLOv8 model loaded successfully with CPU');
+        } catch (cpuError) {
+          console.warn('CPU failed, trying without device specification:', cpuError);
+          detector = await pipeline('object-detection', config.model);
+          console.log('YOLOv8 model loaded with default settings');
+        }
       }
       
       detectorRef.current = detector;
       setIsModelLoaded(true);
-      console.log('Object detection model ready');
+      console.log('Object detection model ready for inference');
     } catch (error) {
-      console.error('Failed to load object detection model:', error);
+      console.error('Failed to load YOLOv8 model:', error);
       setIsModelLoaded(false);
     }
   }, [config.model]);
